@@ -1,7 +1,6 @@
 #!/bin/sh
 set -eu
 
-# shellcheck disable=SC2154
 info() { lf -remote "send $id echo $*"; }
 
 clear_preview() {
@@ -42,14 +41,6 @@ preview_img() {
 	fi
 }
 
-preview_pdf() {
-	if command -v pdftotext >/dev/null; then
-		pdftotext "${file}" -
-	else
-		preview_binary
-	fi
-}
-
 preview_binary() {
 	echo "File: $(stat -c%n "${file}")"
 	echo "Realpath: $(realpath "${file}")"
@@ -57,7 +48,9 @@ preview_binary() {
 		echo Type: "$(file "${file}" | cut -d' ' -f2-)"
 		echo "Md5sum: $(md5sum "${file}" | awk '{print $1}' &)"
 		echo "Sha256sum: $(sha256sum "${file}" | awk '{print $1}' &)"
+		# echo "Size: $(stat -c%s "${file}")"
 		echo "Size: $(du -ahd0 "${file}" | awk '{print $1}') / $(stat -c%s "${file}")"
+		# echo "Size human: $(du -ahd0 "${file}" | cut -d' ' -f2)/$(stat -c%s "${file}")"
 	fi
 
 	echo "Access: $(stat -c%a "${file}")"
@@ -72,7 +65,47 @@ preview_binary() {
 	fi
 }
 
-preivew_any() {
+preview_pdf() {
+	viewer=pdftotext
+	if command -v "${viewer}" >/dev/null; then
+		# pdftotext "${file}" -
+		pdftoppm "${file}" "${TMP_PREVIEW_FILE}" -png -f 1 -l 5 -singlefile
+		file="${TMP_PREVIEW_FILE}.png"
+		preview_img
+	else
+		preview_binary
+	fi
+}
+
+preview_font() {
+	if command -v fontimage >/dev/null; then
+		fontimage \
+			--pixelsize 80 \
+			--fontname \
+			--pixelsize 40 \
+			--text "abcdefghijklmnopqrstuvwxyz 12345" \
+			--text "ABCDEFGHIJKLMNOPQRSTUVWXYZ 67890" \
+			--text "{}[]()<>\$*-+=/#_%^@\\&|~?'\"\`!,.;:" \
+			--text "a o O 0 Q C G i I l | 1 g 9 q B 8" \
+			--o "${TMP_PREVIEW_FILE}.png" \
+			"${file}"
+
+		file="${TMP_PREVIEW_FILE}.png"
+		preview_img
+	else
+		preview_binary
+	fi
+}
+
+preview_markdown() {
+	if command -v glow >/dev/null; then
+		glow --style auto "${file}"
+	else
+		preview_any
+	fi
+}
+
+preview_any() {
 	if base64 "${file}" | grep -q "AA"; then
 		preview_binary
 	else
@@ -89,6 +122,8 @@ main() {
 	# shellcheck disable=SC2034
 	next_file="${6-}"
 
+	TMP_PREVIEW_FILE="${TMPDIR}/lf_prevew"
+
 	case "${file}" in
 	*.tar*) tar tf "${file}" ;;
 	*.zip) unzip -l "${file}" ;;
@@ -96,8 +131,9 @@ main() {
 	*.7z) 7z l "${file}" ;;
 	*.pdf) preview_pdf ;;
 	*.png | *.jpg | *.tiff | *.gif) preview_img ;;
-	*.md) glow --style auto "${file}" ;;
-	*) preivew_any ;;
+	*.md) preview_markdown ;;
+	*.ttf | *.otf | *.woff | *.woff2) preview_font ;;
+	*) preview_any ;;
 	esac
 }
 
