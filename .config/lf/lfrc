@@ -109,14 +109,6 @@ cmd zip ${{
 
 ## ========== My Configurations ==========
 ### My commands
-cmd recol %{{
-    if [ $lf_width -le 80 ]; then
-        lf -remote "send $id set ratios 1:1"
-    else
-        lf -remote "send $id set ratios 4:5:5"
-    fi
-}}
-
 cmd delete-forced %{{
     for file in $fx; do
     rm -rf "$file"
@@ -159,9 +151,42 @@ map .e ${{
 }}
 
 ### Initial steps
-&lf -remote "send $id recol"
 set previewer "~/.config/lf/pv.sh"
 set icons true
 set sixel true
 set hidden true
 set mouse true
+
+cmd recol %{{
+    # Set preview=false is set by user
+    if ! [ ${lf_ratios} = 1 ] && [ ${lf_preview} = false ]; then
+        preview=false
+    else
+        preview=true
+    fi
+
+    if [ ${lf_width} -gt 90 ]; then
+        ratios=1:2:3
+    elif [ ${lf_width} -gt 45 ]; then
+        ratios=1:1
+    else
+        ratios=1
+        preview=false
+        # when preview=false can we set ratios=1
+        # when ratios!=1 can we set preview=true
+        if ! [ ${lf_preview} = ${preview} ]; then
+            lf -remote "send $id set preview ${preview}"
+        fi
+    fi
+
+    if ! [ ${lf_ratios} = ${ratios} ]; then
+        lf -remote "send $id set ratios ${ratios}"
+    fi
+    # set preview later than ratios
+    if ! [ ${lf_preview} = ${preview} ]; then
+        lf -remote "send $id set preview ${preview}"
+    fi
+}}
+
+# cmd on-init recol
+cmd on-redraw recol
