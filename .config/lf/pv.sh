@@ -122,6 +122,7 @@ main() {
 	# shellcheck disable=SC2034
 	next_file="${6-}"
 
+	TMPDIR="${TMPDIR:-/tmp}"
 	TMP_PREVIEW_FILE="${TMPDIR}/lf_prevew"
 
 	case "${file}" in
